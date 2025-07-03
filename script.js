@@ -23,6 +23,14 @@ If someone asks about topics unrelated to L'Oréal or beauty (like cooking, spor
 
 Always be helpful, positive, and encouraging about beauty and self-care.`;
 
+// Conversation history for multi-turn context
+let conversationHistory = [
+  {
+    role: "system",
+    content: SYSTEM_PROMPT,
+  },
+];
+
 // Set initial message
 displayMessage(
   "👋 Hello! I'm your L'Oréal beauty assistant. How can I help you with your skincare, makeup, or haircare today?",
@@ -30,26 +38,53 @@ displayMessage(
 );
 
 /* Function to display messages in the chat window */
+
+// Display a message bubble in the chat window
 function displayMessage(message, sender) {
-  // Create message element
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("msg", sender);
   messageDiv.textContent = message;
 
-  // Add to chat window
-  chatWindow.appendChild(messageDiv);
+  // Create a wrapper to ensure proper clearing
+  const messageWrapper = document.createElement("div");
+  messageWrapper.style.overflow = "hidden"; // This creates a new block formatting context
+  messageWrapper.appendChild(messageDiv);
 
-  // Scroll to bottom
+  chatWindow.appendChild(messageWrapper);
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
+// Clear all messages from the chat window
+function clearChatWindow() {
+  chatWindow.innerHTML = "";
+}
+
+// Render the full conversation history (except system prompt)
+function renderConversation() {
+  clearChatWindow();
+  // Skip the system prompt
+  for (let i = 1; i < conversationHistory.length; i++) {
+    const msg = conversationHistory[i];
+    if (msg.role === "user") {
+      displayMessage(msg.content, "user");
+    } else if (msg.role === "assistant") {
+      displayMessage(msg.content, "ai");
+    }
+  }
+}
+
 /* Function to call Cloudflare Worker (which then calls OpenAI API) */
-async function callOpenAI(userMessage) {
+
+// Call the Cloudflare Worker with full conversation history
+async function callOpenAI() {
   try {
     // Show typing indicator
     displayMessage("Thinking...", "ai");
 
     // Prepare the request for the Cloudflare Worker
+    // Only send the last 10 messages for context (system prompt + last 9 turns)
+    const messagesToSend = conversationHistory.slice(-10);
+
     const response = await fetch(
       "https://crimson-feather-5898.horseykate1129.workers.dev/",
       {
@@ -58,16 +93,7 @@ async function callOpenAI(userMessage) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: SYSTEM_PROMPT,
-            },
-            {
-              role: "user",
-              content: userMessage,
-            },
-          ],
+          messages: messagesToSend,
         }),
       }
     );
@@ -107,8 +133,11 @@ async function callOpenAI(userMessage) {
 
     const aiResponse = data.choices[0].message.content;
 
-    // Display AI response
-    displayMessage(aiResponse, "ai");
+    // Add assistant response to conversation history
+    conversationHistory.push({ role: "assistant", content: aiResponse });
+
+    // Re-render conversation
+    renderConversation();
   } catch (error) {
     // Remove typing indicator if there was an error
     const messages = chatWindow.querySelectorAll(".msg");
@@ -140,26 +169,30 @@ async function callOpenAI(userMessage) {
         "❌ Network Issue: Please check your internet connection and try again.";
     }
 
-    displayMessage(errorMessage, "ai");
+    // Add error to conversation history as assistant
+    conversationHistory.push({ role: "assistant", content: errorMessage });
+    renderConversation();
   }
 }
 
 /* Handle form submit */
+
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   // Get user input
   const message = userInput.value.trim();
-
-  // Don't send empty messages
   if (!message) return;
 
-  // Display user message
-  displayMessage(message, "user");
+  // Add user message to conversation history
+  conversationHistory.push({ role: "user", content: message });
+
+  // Show only the latest user question above the AI response (reset each time)
+  renderConversation();
 
   // Clear input field
   userInput.value = "";
 
-  // Call OpenAI API
-  await callOpenAI(message);
+  // Call OpenAI API with full conversation history
+  await callOpenAI();
 });
