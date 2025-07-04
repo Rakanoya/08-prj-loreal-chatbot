@@ -163,6 +163,19 @@ body {
   outline-offset: 2px;
 }
 
+.chat-form button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.chat-form input:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
 /* visually hidden */
 .visually-hidden {
   position: absolute;

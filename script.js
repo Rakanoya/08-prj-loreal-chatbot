@@ -3,25 +3,42 @@ const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
 const chatWindow = document.getElementById("chatWindow");
 
+// Check if all required DOM elements exist
+if (!chatForm || !userInput || !chatWindow) {
+  console.error(
+    "Required DOM elements not found. Please check your HTML structure."
+  );
+}
+
 // L'Oréal brand system prompt for the AI assistant
-const SYSTEM_PROMPT = `You are a helpful L'Oréal beauty assistant. You specialize in L'Oréal products, skincare routines, makeup tips, haircare advice, and general beauty guidance.
+const SYSTEM_PROMPT = `You are L'Oréal's official beauty assistant, specialized exclusively in L'Oréal products and beauty expertise. You represent the world's leading beauty brand with over 100 years of innovation.
 
-Your role is to:
-- Recommend L'Oréal products for specific beauty needs
-- Provide skincare, makeup, and haircare tips
-- Help users understand different beauty routines
-- Answer questions about ingredients, product usage, and beauty trends
-- Be friendly, professional, and knowledgeable about beauty
+YOUR CORE MISSION:
+- Help customers discover the perfect L'Oréal products for their beauty needs
+- Provide expert guidance on L'Oréal skincare, makeup, haircare, and fragrance lines
+- Share personalized beauty routines using L'Oréal products
+- Educate about L'Oréal's innovative ingredients and technologies
+- Build customer confidence in their beauty journey with L'Oréal
 
-IMPORTANT: Only answer questions related to:
-- L'Oréal products and services
-- Beauty, skincare, makeup, and haircare topics
-- General beauty advice and tips
-- Ingredient information and product benefits
+STAY STRICTLY ON-TOPIC. You ONLY discuss:
+✅ L'Oréal products (makeup, skincare, haircare, fragrances)
+✅ L'Oréal brands (Lancôme, Urban Decay, YSL Beauty, Kiehl's, etc.)
+✅ Beauty routines and application techniques using L'Oréal products
+✅ Ingredient benefits and product comparisons within L'Oréal range
+✅ Skin types, hair types, and beauty concerns that L'Oréal addresses
+✅ L'Oréal's innovation, sustainability, and brand values
 
-If someone asks about topics unrelated to L'Oréal or beauty (like cooking, sports, politics, etc.), politely redirect them back to beauty-related topics by saying something like: "I'm here to help with L'Oréal products and beauty advice. How can I assist you with your skincare, makeup, or haircare needs today?"
+❌ NEVER discuss:
+- Competitor beauty brands or products
+- Non-beauty topics (cooking, sports, politics, technology, etc.)
+- Generic beauty advice without L'Oréal product recommendations
+- Medical advice or treatments
+- Personal information or topics unrelated to beauty
 
-Always be helpful, positive, and encouraging about beauty and self-care.`;
+REDIRECT PROTOCOL:
+If someone asks about anything outside your scope, respond: "I'm your dedicated L'Oréal beauty assistant! I'm here to help you discover amazing L'Oréal products and create the perfect beauty routine. What beauty goals can I help you achieve today? Are you looking for skincare, makeup, haircare, or fragrance recommendations?"
+
+TONE: Professional, enthusiastic about L'Oréal, knowledgeable, and inspiring. Always mention specific L'Oréal products when possible.`;
 
 // Conversation history for multi-turn context
 let conversationHistory = [
@@ -30,12 +47,6 @@ let conversationHistory = [
     content: SYSTEM_PROMPT,
   },
 ];
-
-// Set initial message
-displayMessage(
-  "👋 Hello! I'm your L'Oréal beauty assistant. How can I help you with your skincare, makeup, or haircare today?",
-  "ai"
-);
 
 /* Function to display messages in the chat window */
 
@@ -73,6 +84,12 @@ function renderConversation() {
   }
 }
 
+// Set initial message after function definition
+displayMessage(
+  "✨ Welcome to L'Oréal! I'm your personal beauty assistant, ready to help you discover our amazing products and create your perfect beauty routine. Whether you're looking for skincare solutions, makeup must-haves, haircare essentials, or signature fragrances - I'm here to guide you! What beauty goals can I help you achieve today?",
+  "ai"
+);
+
 /* Function to call Cloudflare Worker (which then calls OpenAI API) */
 
 // Call the Cloudflare Worker with full conversation history
@@ -98,12 +115,8 @@ async function callOpenAI() {
       }
     );
 
-    // Remove typing indicator
-    const messages = chatWindow.querySelectorAll(".msg");
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.textContent === "Thinking...") {
-      chatWindow.removeChild(lastMessage);
-    }
+    // Remove typing indicator by finding all thinking messages
+    removeTypingIndicator();
 
     // Check if request was successful
     if (!response.ok) {
@@ -140,11 +153,7 @@ async function callOpenAI() {
     renderConversation();
   } catch (error) {
     // Remove typing indicator if there was an error
-    const messages = chatWindow.querySelectorAll(".msg");
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.textContent === "Thinking...") {
-      chatWindow.removeChild(lastMessage);
-    }
+    removeTypingIndicator();
 
     console.error("Error calling Cloudflare Worker:", error);
 
@@ -175,24 +184,182 @@ async function callOpenAI() {
   }
 }
 
+// Helper function to remove typing indicators from chat
+function removeTypingIndicator() {
+  const messages = chatWindow.querySelectorAll(".msg");
+  messages.forEach((msg) => {
+    if (msg.textContent === "Thinking...") {
+      // Remove the wrapper div that contains the message
+      const wrapper = msg.parentNode;
+      if (wrapper && wrapper.parentNode === chatWindow) {
+        chatWindow.removeChild(wrapper);
+      }
+    }
+  });
+}
+
+// Function to check if user input is likely on-topic for L'Oréal beauty
+function isBeautyRelated(message) {
+  // Sanitize input
+  if (!message || typeof message !== "string") {
+    return false;
+  }
+
+  const beautyKeywords = [
+    // L'Oréal specific
+    "loreal",
+    "l'oreal",
+    "lancome",
+    "urban decay",
+    "ysl",
+    "kiehl",
+    "maybelline",
+    // Beauty categories
+    "makeup",
+    "skincare",
+    "haircare",
+    "fragrance",
+    "perfume",
+    "cosmetics",
+    "foundation",
+    "lipstick",
+    "mascara",
+    "eyeshadow",
+    "blush",
+    "concealer",
+    "moisturizer",
+    "cleanser",
+    "serum",
+    "toner",
+    "cream",
+    "lotion",
+    "shampoo",
+    "conditioner",
+    "hair",
+    "skin",
+    "face",
+    "eyes",
+    "lips",
+    // Beauty concerns
+    "acne",
+    "wrinkles",
+    "aging",
+    "dry",
+    "oily",
+    "sensitive",
+    "dull",
+    "routine",
+    "beauty",
+    "color",
+    "shade",
+    "application",
+    "tips",
+    // Beauty actions
+    "recommend",
+    "suggest",
+    "help",
+    "choose",
+    "pick",
+    "best",
+    "good",
+  ];
+
+  const lowerMessage = message.toLowerCase().trim();
+  return (
+    beautyKeywords.some((keyword) => lowerMessage.includes(keyword)) ||
+    lowerMessage.length < 50
+  ); // Allow short questions that might be beauty-related
+}
+
+// Function to provide immediate redirect for clearly off-topic questions
+function getOffTopicResponse() {
+  return "I'm your dedicated L'Oréal beauty assistant! I'm here to help you discover amazing L'Oréal products and create the perfect beauty routine. What beauty goals can I help you achieve today? Are you looking for skincare, makeup, haircare, or fragrance recommendations?";
+}
+
 /* Handle form submit */
+
+// Variable to prevent multiple simultaneous requests
+let isProcessing = false;
 
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  // Get user input
+  // Prevent multiple simultaneous submissions
+  if (isProcessing) {
+    return;
+  }
+
+  // Get user input and validate
   const message = userInput.value.trim();
   if (!message) return;
 
-  // Add user message to conversation history
-  conversationHistory.push({ role: "user", content: message });
+  // Check message length (prevent extremely long messages)
+  if (message.length > 1000) {
+    displayMessage("Please keep your message under 1000 characters.", "ai");
+    return;
+  }
 
-  // Show only the latest user question above the AI response (reset each time)
-  renderConversation();
+  // Disable form inputs to prevent multiple submissions
+  setFormDisabled(true);
 
-  // Clear input field
-  userInput.value = "";
+  // Set processing flag
+  isProcessing = true;
 
-  // Call OpenAI API with full conversation history
-  await callOpenAI();
+  try {
+    // Add user message to conversation history
+    conversationHistory.push({ role: "user", content: message });
+
+    // Check if the message is likely off-topic
+    if (!isBeautyRelated(message)) {
+      // Provide immediate response for off-topic questions
+      const offTopicResponse = getOffTopicResponse();
+
+      // Add off-topic response to conversation history
+      conversationHistory.push({
+        role: "assistant",
+        content: offTopicResponse,
+      });
+
+      // Re-render conversation to show both user message and redirect response
+      renderConversation();
+
+      // Clear input field
+      userInput.value = "";
+
+      // Don't call OpenAI API for obvious off-topic questions
+      return;
+    }
+
+    // Re-render conversation to show user message
+    renderConversation();
+
+    // Clear input field
+    userInput.value = "";
+
+    // Call OpenAI API with full conversation history
+    await callOpenAI();
+  } finally {
+    // Always reset processing flag
+    isProcessing = false;
+
+    // Re-enable form inputs
+    setFormDisabled(false);
+  }
 });
+
+// Disable/enable form inputs during processing
+function setFormDisabled(disabled) {
+  if (userInput && chatForm) {
+    userInput.disabled = disabled;
+    const submitBtn = chatForm.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = disabled;
+    }
+
+    // Focus management for accessibility
+    if (!disabled && userInput) {
+      // Re-focus input when form is re-enabled
+      setTimeout(() => userInput.focus(), 100);
+    }
+  }
+}
